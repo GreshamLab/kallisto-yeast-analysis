@@ -1,0 +1,48 @@
+---
+title: "R Notebook"
+author: Daniel Obaji
+output: 
+  html_notebook: 
+    toc: yes
+---
+
+#!/bin/bash
+
+#first make an index for the FASTA file
+
+kallisto index -i sacCer.idx sacCer_cDNA.fa --make-unique
+
+
+
+#next run the bus function which pseudoaligns teh fastq file and returns a .bus file
+#-i is the genome index created above
+#-o is the output directory
+#-x is the sequencing method
+#-t is number of processors
+#for the fastq files, need the R1 and R2 files
+
+kallisto bus -i sacCer.idx -o ./Proline/ -x 10Xv2 -t16 --verbose ./Proline/Proline_BCDEL1_S2_L00*
+
+
+#next need to use bustools to work on the .bus file
+
+#first correct barcodes    that are one substitution away from a barcode in the whitelist
+#sort accelerates downstream analysis
+
+bustools correct -w 10xv2_whitelist.txt -p ./Proline/output.bus | bustools sort -t 16 -o corrected_sorted.bus -
+
+#need a    trasncript to gene mapping file
+grep transcript_id Saccharomyces_cerevisiae.R64-1-1.Marker.UTR.gtf|grep -v exon > sacCer_transcript.gtf
+
+#first part is positive look behind
+grep -oP '(?<=id ").*(?="; transcript_id)' sacCer_cDNA_update.fa > genelist.txt    #used regex to get the transcript names
+
+#merge genelist    with the transcript list output    from kallisto bus
+paste ./Proline/transcripts.txt genelist.txt genelist.txt > t2g.txt
+
+
+#run bustools count
+
+bustools count -o ./Proline_count -g t2g.txt -e Proline/matrix.ec -t Proline/transcripts.txt --genecounts corrected_sorted.bus
+
+
