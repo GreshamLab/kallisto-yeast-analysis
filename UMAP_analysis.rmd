@@ -1,0 +1,128 @@
+---
+title: "UMAP analysis"
+output: 
+  html_notebook:
+    toc: yes
+---
+## Loading  packages
+```{r}
+library(dplyr)
+library(ggplot2)
+library(uwot)
+```
+
+## Combining my data
+```{r}
+prolinematrix <- read.delim("prolinematrix.tsv")
+glutaminematrix <- read.delim("glutaminematrix.tsv")
+
+
+prolinematrix <- as.data.frame(t(as.matrix(prolinematrix)))
+glutaminematrix <- as.data.frame(t(as.matrix(glutaminematrix)))
+
+#add experiment column
+prolinematrix$Experiment<- "Prol"
+glutaminematrix$Experiment<-"Glut"
+
+#make the cell id  column
+prolinematrix <- cbind(rownames(prolinematrix),prolinematrix)
+colnames(prolinematrix)[1] = "10X"
+rownames(prolinematrix) <- NULL
+
+glutaminematrix <- cbind(rownames(glutaminematrix),glutaminematrix)
+colnames(glutaminematrix)[1] = "10X"
+rownames(glutaminematrix) <- NULL
+
+#combine the data
+combineddata <- rbind(prolinematrix,glutaminematrix)
+
+combineddata$Person <- "Dan"
+
+# prolinematrix$Experimnet = "Prol"
+# glutaminematrix$Experiment = "Glut"
+# combinedmatrix <- rbind(as.data.frame(t(as.matrix(prolinematrix))),
+#                     as.data.frame(t(as.matrix(glutaminematrix))))
+
+#add a column to specify experiments
+# combinedmatrix$Experiment = "Glut"
+# combinedmatrix$Experiment[1:ncol(prolinematrix)] = "Prol"
+# combinedmatrix$Experiment = as.factor(combinedmatrix$Experiment)
+
+#make the cell barcode a column instead of rowname
+# `10X` <- rownames(combinedmatrix)
+# combinedmatrix <- cbind(`10X`, combinedmatrix)
+# rownames(combinedmatrix) <- NULL
+```
+
+## Loading Chris's data, and merging with my combined data
+```{r}
+chrisprolinematrix <- read.delim("GSM3564447_NLIMPRO-fastqTomat0-Counts.tsv")
+
+colnames(chrisprolinematrix)[1] <- "10X"
+
+chrisglutaminematrix <- read.delim("GSM3564446_NLIMGLN-fastqTomat0-Counts.tsv.gz")
+colnames(chrisglutaminematrix)[1] <- "10X"
+
+chrisglutaminematrix <- chrisglutaminematrix[,1:(ncol(chrisglutaminematrix)-3)]
+chrisglutaminematrix$Experiment <- "Glut"
+
+chrisprolinematrix <- chrisprolinematrix[,1:(ncol(chrisprolinematrix)-3)]
+chrisprolinematrix$Experiment <- "Prol"
+
+chriscombinedmat <- rbind(chrisglutaminematrix,
+                          chrisprolinematrix) 
+
+chriscombinedmat$Person <- "Chris"
+
+#selecting only the genes that are shared between chris's data and mine
+genename.index <- colnames(chriscombinedmat) %in% colnames(combineddata)
+
+chriscombinedmat_filt <- chriscombinedmat[,genename.index]
+
+#selecting only genes from my data that are in chris's
+mydat_genename.index <- colnames(combineddata) %in% colnames(chriscombinedmat)
+
+combineddata_filt <- combineddata[,mydat_genename.index]
+
+mergeddata <- rbind(combineddata_filt,
+                    chriscombinedmat_filt)
+
+```
+## Log transform
+```{r}
+# for (i in 1: ncol(mergeddata)){
+#   if{str(merged)}
+# }
+
+mergeddata.transformed <- cbind(mergeddata[,1],log2(mergeddata[,2:5646]+1),mergeddata[,5647:5648])
+
+colnames(mergeddata.transformed)[1] = "10X"
+colnames(mergeddata.transformed)[5647:5648] = c("Experiment","Person")
+```
+
+## UMAP and plot
+```{r}
+# install.packages('Seurat')
+# library(Seurat)
+# install.packages("uwot")
+# 
+
+data_umap <- umap(mergeddata.transformed, pca = 100)
+plot(data_umap)
+
+#adding experiment and person info to the UMAP results
+umapdata.metagene <- cbind(data_umap, mergeddata[,5647:5648])
+colnames(umapdata.metagene)[1:2] = c("xcod","ycod")
+umapdata.metagene$Person <- as.factor(umapdata.metagene$Person)
+umapdata.metagene$Experiment <- as.factor(umapdata.metagene$Experiment)
+#shuffling dataframe
+# set.seed(25)
+rownames(umapdata.metagene) <- NULL
+umapdata.metagene <- umapdata.metagene[sample(nrow(umapdata.metagene)),]
+
+#plot
+ggplot(umapdata.metagene) + geom_point(aes(x = xcod, y = ycod, col = Person), shape =1)
+
+ggplot(umapdata.metagene) + geom_point(aes(x = xcod, y = ycod, col = Experiment), shape =1)
+```
+
