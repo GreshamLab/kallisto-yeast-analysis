@@ -1,0 +1,85 @@
+---
+title: "count-matrix-data"
+output: html_document
+toc: true 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Loading required package
+```{r}
+library(Matrix)
+library(dplyr)
+```
+
+## Converting the count to a dgTMatrix
+```{r}
+matrix_dir = "/scratch/dno214/cellrangertest2/Proline/outs/filtered_feature_bc_matrix/"
+
+barcode.path <- paste0(matrix_dir, "barcodes.tsv")
+features.path <- paste0(matrix_dir, "features.tsv")
+matrix.path <- paste0(matrix_dir, "matrix.mtx")
+mat <- readMM(file = matrix.path)
+feature.names = read.delim(features.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+barcode.names = read.delim(barcode.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+colnames(mat) = barcode.names$V1
+rownames(mat) = feature.names$V1
+```
+
+## Converting the raw count to a dgTMatrix
+```{r}
+rawmatrix_dir = "/scratch/dno214/cellrangertest2/Proline/outs/raw_feature_bc_matrix/"
+
+rawbarcode.path <- paste0(rawmatrix_dir, "barcodes.tsv.gz")
+rawfeatures.path <- paste0(rawmatrix_dir, "features.tsv.gz")
+rawmatrix.path <- paste0(rawmatrix_dir, "matrix.mtx.gz")
+rawmat <- readMM(file = rawmatrix.path)
+rawfeature.names = read.delim(rawfeatures.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+rawbarcode.names = read.delim(rawbarcode.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+colnames(rawmat) = rawbarcode.names$V1
+rownames(rawmat) = rawfeature.names$V1
+```
+
+## Concerting to TSV file
+```{r}
+glutaminematrix <- as.matrix(mat) %>% as.data.frame()
+head(glutaminematrix)
+write.table(glutaminematrix, "glutaminematrix.tsv", sep = "\t")
+```
+
+## Combining both tables
+```{r}
+prolinematrix <- read.delim("prolinematrix.tsv")
+
+prolinematrix <- as.data.frame(t(prolinematrix)) 
+glutaminematrix <- as.data.frame(t(glutaminematrix))
+
+prolinematrix$Experiment = "Proline"
+glutaminematrix$Experiment = "Glutamine"
+
+prolinematrix <- cbind(rownames(prolinematrix), data.frame(prolinematrix, row.names=NULL))
+colnames(prolinematrix)[1] <- "10Xbarcode"
+# head(prolinematrix)
+
+glutaminematrix <- cbind(rownames(glutaminematrix), data.frame(glutaminematrix, row.names=NULL))
+colnames(glutaminematrix)[1] <- "10Xbarcode"
+# head(prolinematrix)
+
+combinedmatrix <- rbind(prolinematrix,glutaminematrix)
+combinedmatrix$Experiment <- as.factor(combinedmatrix$Experiment)
+head(combinedmatrix)
+```
+
+## loading Chris' matrix
+```{r}
+chrismatrix <- read.delim("GSM3564447_NLIMPRO-fastqTomat0-Counts.tsv")
+```
