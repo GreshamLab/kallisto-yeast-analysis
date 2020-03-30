@@ -1,0 +1,84 @@
+---
+title: "Comparing kalisto and cellranger output"
+author: Daniel Obaji
+output: 
+  html_notebook: 
+    toc: yes
+---
+```{r}
+library(Matrix)
+library(dplyr)
+# BiocManager::install(c("DropletUtils", "BUSpaRse"))
+library(BUSpaRse)
+library(Seurat)
+library(tidyverse)
+library(DropletUtils)
+theme_set(theme_bw())
+
+```
+
+##Loading in data
+```{r}
+#loading in cellranger matrix
+cellrmatrix <- read.delim("./cellr_files/prolinematrix.tsv")
+#cellrmatrix[0:5,0:5]
+```
+
+```{r}
+#loading in kallisto table
+#barcode.path <- "./Proline_count.barcodes.txt"
+#features.path <- "./Proline_count.genes.txt"
+#matrix.path <- "./Proline_count.mtx"
+prol_kal_mat <- read_count_output("./",name = "Proline_count",tcc = F)
+
+#filtering kallisto
+tot_counts <- Matrix::colSums(prol_kal_mat)
+summary(tot_counts)
+bc_rank <- barcodeRanks(prol_kal_mat)
+
+prol_kal_mat_filt <- prol_kal_mat[,tot_counts > (bc_rank)$inflection]
+#dim(prol_kal_mat_filt)
+```
+
+##getting a standardized matrix for both
+```{r}
+#head(colnames(prol_kal_mat_filt))
+#head(colnames(cellrmatrix))
+
+similar_genes <- rownames(cellrmatrix)[rownames(cellrmatrix)%in%rownames(prol_kal_mat_filt)]
+
+prolcellrbar <- read.delim("proline_filtcellr_barcodes.txt", header =F)
+colnames(cellrmatrix)=prolcellrbar$V1
+#barcode_cellr <- colnames(cellrmatrix)
+similar_codes <- colnames(cellrmatrix)[colnames(cellrmatrix)%in%colnames(prol_kal_mat_filt)]
+
+# pattern <- '(?<= ").*'
+# 
+# regmatches(barcode_cellr,regexpr(pattern,barcode_cellr, perl = T))
+#barcode_cellr<-as.list(barcode_cellr)
+
+prolkalmatrix <- as.matrix(prol_kal_mat_filt) %>% as.data.frame()
+
+# write.table(prolkalmatrix, "filtr_prolkalmatrix", sep = "\t")
+
+unique_prolcellrmatrix <- cellrmatrix[similar_genes,similar_codes]
+unique_prolkallmatrix <- prolkalmatrix[similar_genes,similar_codes]
+```
+
+
+##Now to subtract and find rowSums and plot!
+```{r}
+diff_matrix <- unique_prolcellrmatrix - unique_prolkallmatrix
+
+diff_list <- rowSums(diff_matrix)%>%as.data.frame()
+
+colnames(diff_list) <- "value"
+summary(diff_list)
+
+ggplot(data = diff_list)+ geom_histogram(aes(x=value))
+```
+
+
+
+
+
