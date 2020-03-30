@@ -1,0 +1,43 @@
+---
+title: "Analysis of kallisto mtx"
+output: 
+  html_notebook: 
+    toc: yes
+---
+
+## Loading libraries
+```{r}
+library(Matrix)
+library(dplyr)
+# BiocManager::install(c("DropletUtils", "BUSpaRse"))
+library(BUSpaRse)
+library(Seurat)
+library(tidyverse)
+library(DropletUtils)
+```
+
+## Loading matrix
+```{r}
+barcode.path <- "/scratch/dno214/kallistotest_v2/R_analysis/Proline_count.barcodes.txt"
+features.path <- "/scratch/dno214/kallistotest_v2/R_analysis/Proline_count.genes.txt"
+matrix.path <- "/scratch/dno214/kallistotest_v2/R_analysis/Proline_count.mtx"
+mymat <- readMM(file = matrix.path)
+feature.names = read.delim(features.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+barcode.names = read.delim(barcode.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+rownames(mymat) = barcode.names$V1
+colnames(mymat) = feature.names$V1
+
+mymat <- t(mymat)
+
+
+```
+
+## converting to tsv
+```{r}
+proline_kal_mat <- as.matrix(mymat) %>% as.data.frame()
+write.table(proline_kal_mat, "proline_kalmatrix.tsv", sep = "\t")
+```
